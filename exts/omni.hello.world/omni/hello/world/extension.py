@@ -5,6 +5,9 @@ import requests
 from PIL import Image, PngImagePlugin
 import io
 import base64
+import os
+
+cwd = os.getcwd()
 
 # https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API
 # http://127.0.0.1:7860/docs
@@ -72,11 +75,13 @@ class MyExtension(omni.ext.IExt):
     def on_startup(self, ext_id):
         print("[omni.hello.world] MyExtension startup")
 
-        self._window = ui.Window("My Window", width=300, height=300)
+        self._window = ui.Window("My Window", width=300, height=600)
+        self.field = None
+
         with self._window.frame:
             def on_click():
                 payload = {
-                    "prompt": "maltese puppy",
+                    "prompt": self.field.model.get_value_as_string(),
                     "steps": 5
                 }
 
@@ -84,6 +89,8 @@ class MyExtension(omni.ext.IExt):
                 response = requests.post(url=f'{url}/sdapi/v1/txt2img', json=payload)
                 r = response.json()
                 print(response)
+                if 'images' not in r:
+                    return
                 for i in r['images']:
                     image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
 
@@ -94,8 +101,14 @@ class MyExtension(omni.ext.IExt):
 
                     pnginfo = PngImagePlugin.PngInfo()
                     pnginfo.add_text("parameters", response2.json().get("info"))
-                    image.save('output.png', pnginfo=pnginfo)
-                    print('Saved to output.png')
+                    image.save(f'{cwd}/output.png', pnginfo=pnginfo)
+                    print(f'Saved to {cwd}/output.png')
+
+                    style = {
+                        "": {"image_url": f'{cwd}/output.png'},
+                        ":hovered": {"image_url": f'{cwd}/output.png'},
+                    }
+                    self.image.set_style(style)
 
             def on_reset():
                 self._count = 0
@@ -109,12 +122,13 @@ class MyExtension(omni.ext.IExt):
             on_reset()
 
             with ui.VStack():
-                field = ui.StringField()
+                self.field = ui.StringField()
                 # label = ui.Label("")
                 # field.model.add_value_changed_fn(
                 #     lambda m, label=label: setText(label, m.get_value_as_string()))
                 ui.Button("txt2img", clicked_fn=on_click)
-                ui.Button("Reset", clicked_fn=on_reset)
+                # ui.Button("Reset", clicked_fn=on_reset)
+                self.image = ui.Image(f'{cwd}/output.png')
 
     def on_shutdown(self):
         print("[omni.hello.world] MyExtension shutdown")
