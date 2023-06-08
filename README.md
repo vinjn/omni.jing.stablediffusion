@@ -2,6 +2,10 @@
 
 This project is a template for developing extensions for *Omniverse Kit*.
 
+# Reference
+
+- [Blender-ControlNet](https://github.com/coolzilj/Blender-ControlNet)
+
 # Getting Started
 
 ## Install Omniverse and some Apps

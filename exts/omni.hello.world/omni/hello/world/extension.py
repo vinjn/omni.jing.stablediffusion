@@ -1,11 +1,66 @@
 import omni.ext
 import omni.ui as ui
+from . import multicn
+import requests
+from PIL import Image, PngImagePlugin
+import io
+import base64
+
+# https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API
+# http://127.0.0.1:7860/docs
 
 
-# Functions and vars are available to other extension as usual in python: `example.python_ext.some_public_function(x)`
-def some_public_function(x: int):
-    print(f"[omni.hello.world] some_public_function was called with {x}")
-    return x ** x
+def make_txt2img_param(prompt, negative_prompt):
+    param = {
+        "enable_hr": False,
+        "denoising_strength": 0,
+        "firstphase_width": 0,
+        "firstphase_height": 0,
+        "hr_scale": 2,
+        "hr_upscaler": "string",
+        "hr_second_pass_steps": 0,
+        "hr_resize_x": 0,
+        "hr_resize_y": 0,
+        "hr_sampler_name": "string",
+        "hr_prompt": "",
+        "hr_negative_prompt": "",
+        "prompt": prompt,
+        # "styles": [
+        #     "string"
+        # ],
+        "seed": -1,
+        "subseed": -1,
+        "subseed_strength": 0,
+        "seed_resize_from_h": -1,
+        "seed_resize_from_w": -1,
+        "sampler_name": "string",
+        "batch_size": 1,
+        "n_iter": 1,
+        "steps": 50,
+        "cfg_scale": 7,
+        "width": 512,
+        "height": 512,
+        "restore_faces": False,
+        "tiling": False,
+        "do_not_save_samples": False,
+        "do_not_save_grid": False,
+        "negative_prompt": negative_prompt,
+        "eta": 0,
+        "s_min_uncond": 0,
+        "s_churn": 0,
+        "s_tmax": 0,
+        "s_tmin": 0,
+        "s_noise": 1,
+        "override_settings": {},
+        "override_settings_restore_afterwards": True,
+        "script_args": [],
+        "sampler_index": "Euler",
+        "script_name": "string",
+        "send_images": True,
+        "save_images": False,
+        "alwayson_scripts": {}
+    }
+    return param
 
 
 # Any class derived from `omni.ext.IExt` in top level module (defined in `python.modules` of `extension.toml`) will be
@@ -17,27 +72,49 @@ class MyExtension(omni.ext.IExt):
     def on_startup(self, ext_id):
         print("[omni.hello.world] MyExtension startup")
 
-        self._count = 0
-
         self._window = ui.Window("My Window", width=300, height=300)
         with self._window.frame:
+            def on_click():
+                payload = {
+                    "prompt": "maltese puppy",
+                    "steps": 5
+                }
+
+                url = "http://127.0.0.1:7860"
+                response = requests.post(url=f'{url}/sdapi/v1/txt2img', json=payload)
+                r = response.json()
+                print(response)
+                for i in r['images']:
+                    image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
+
+                    png_payload = {
+                        "image": "data:image/png;base64," + i
+                    }
+                    response2 = requests.post(url=f'{url}/sdapi/v1/png-info', json=png_payload)
+
+                    pnginfo = PngImagePlugin.PngInfo()
+                    pnginfo.add_text("parameters", response2.json().get("info"))
+                    image.save('output.png', pnginfo=pnginfo)
+                    print('Saved to output.png')
+
+            def on_reset():
+                self._count = 0
+
+            def setText(label, text):
+                '''Sets text on the label'''
+                pass
+                # This function exists because lambda cannot contain assignment
+                # label.text = f"You wrote '{text}'"
+
+            on_reset()
+
             with ui.VStack():
-                label = ui.Label("")
-                
-
-                def on_click():
-                    self._count += 1
-                    label.text = f"count: {self._count}"
-
-                def on_reset():
-                    self._count = 0
-                    label.text = "empty"
-
-                on_reset()
-
-                with ui.HStack():
-                    ui.Button("Add", clicked_fn=on_click)
-                    ui.Button("Reset", clicked_fn=on_reset)
+                field = ui.StringField()
+                # label = ui.Label("")
+                # field.model.add_value_changed_fn(
+                #     lambda m, label=label: setText(label, m.get_value_as_string()))
+                ui.Button("txt2img", clicked_fn=on_click)
+                ui.Button("Reset", clicked_fn=on_reset)
 
     def on_shutdown(self):
         print("[omni.hello.world] MyExtension shutdown")
