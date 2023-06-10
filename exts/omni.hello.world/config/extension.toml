@@ -27,6 +27,9 @@ icon = "data/icon.png"
 # Preview to show in the extension manager
 preview_image = "data/preview.png"
 
+[python.pipapi]
+requirements = ['requests', 'webuiapi']
+use_online_index = true
 
 # Use omni.ui to build simple UI
 [dependencies]
