@@ -1,17 +1,21 @@
 import omni.ext
 import omni.ui as ui
-from . import multicn
 import requests
 from PIL import Image, PngImagePlugin
 import io
 import base64
 import os
+import asyncio
+import datetime
+from pathlib import Path
 
 cwd = os.getcwd()
 
 # https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API
 # http://127.0.0.1:7860/docs
 
+# UI doc: https://docs.omniverse.nvidia.com/kit/docs/omni.kit.documentation.ui.style/1.0.3/overview.html
+# stringfield: https://docs.omniverse.nvidia.com/prod_kit/prod_kit/programmer_ref/ui/widgets/stringfield.html
 
 def make_txt2img_param(prompt, negative_prompt):
     param = {
@@ -75,14 +79,17 @@ class MyExtension(omni.ext.IExt):
     def on_startup(self, ext_id):
         print("[omni.hello.world] MyExtension startup")
 
-        self._window = ui.Window("My Window", width=300, height=600)
-        self.field = None
+        self._window = ui.Window("stable diffusion", width=300, height=600)
+
+        self.prompt_ssm = ui.SimpleStringModel()
+        self.nagative_promopt_ssm = ui.SimpleStringModel()
 
         with self._window.frame:
-            def on_click():
+            def on_txt2img():
                 payload = {
-                    "prompt": self.field.model.get_value_as_string(),
-                    "steps": 5
+                    "prompt": self.prompt_ssm.get_value_as_string(),
+                    "negative_prompt": self.nagative_promopt_ssm.get_value_as_string(),
+                    "steps": 10
                 }
 
                 url = "http://127.0.0.1:7860"
@@ -94,41 +101,57 @@ class MyExtension(omni.ext.IExt):
                 for i in r['images']:
                     image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
 
-                    png_payload = {
-                        "image": "data:image/png;base64," + i
-                    }
-                    response2 = requests.post(url=f'{url}/sdapi/v1/png-info', json=png_payload)
+                    if False:
+                        png_payload = {
+                            "image": "data:image/png;base64," + i
+                        }
+                        response2 = requests.post(url=f'{url}/sdapi/v1/png-info', json=png_payload)
 
-                    pnginfo = PngImagePlugin.PngInfo()
-                    pnginfo.add_text("parameters", response2.json().get("info"))
-                    image.save(f'{cwd}/output.png', pnginfo=pnginfo)
-                    print(f'Saved to {cwd}/output.png')
+                        pnginfo = PngImagePlugin.PngInfo()
+                        pnginfo.add_text("parameters", response2.json().get("info"))
+                    else:
+                        pnginfo = None
 
-                    style = {
-                        "": {"image_url": f'{cwd}/output.png'},
-                        ":hovered": {"image_url": f'{cwd}/output.png'},
-                    }
-                    self.image.set_style(style)
 
-            def on_reset():
-                self._count = 0
+                    directory = Path(cwd) / '_results'
+                    directory.mkdir(parents=True, exist_ok=True)
 
-            def setText(label, text):
-                '''Sets text on the label'''
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                    image_name = f'{cwd}/_results/{timestamp}.png'
+                    image.save(image_name, pnginfo=pnginfo)
+                    print(f'Saved to {image_name}')
+
+                    self.image.source_url = image_name
+
+            def on_apply():
                 pass
-                # This function exists because lambda cannot contain assignment
-                # label.text = f"You wrote '{text}'"
-
-            on_reset()
 
             with ui.VStack():
-                self.field = ui.StringField()
+                with omni.ui.HStack(height=0):
+                    omni.ui.Label("Prompt")
+                omni.ui.Spacer(height=5)
+
+                with omni.ui.HStack(height=100):
+                    self.promp = ui.StringField(model=self.prompt_ssm, multiline=False)
+                omni.ui.Spacer(height=5)
+    
+                with omni.ui.HStack(height=0):
+                    omni.ui.Label("Nagative Prompt")
+                omni.ui.Spacer(height=5)
+
+                with omni.ui.HStack(height=100):
+                    self.negative_propmt = ui.StringField(model=self.nagative_promopt_ssm, multiline=False)
+                omni.ui.Spacer(height=5)
+
+                with omni.ui.HStack(height=0):
+                    ui.Button("txt2img", clicked_fn=on_txt2img)
+                    ui.Button("apply", clicked_fn=on_apply)
                 # label = ui.Label("")
                 # field.model.add_value_changed_fn(
                 #     lambda m, label=label: setText(label, m.get_value_as_string()))
-                ui.Button("txt2img", clicked_fn=on_click)
                 # ui.Button("Reset", clicked_fn=on_reset)
                 self.image = ui.Image(f'{cwd}/output.png')
 
     def on_shutdown(self):
         print("[omni.hello.world] MyExtension shutdown")
+        self._window = None

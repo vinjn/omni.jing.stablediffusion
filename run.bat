@@ -1,10 +1,12 @@
 %~dp0\app\kit\omni.app.full.bat ^
+    --/app/window/title=omni-stable-diffusion ^
     --ext-folder %~dp0\exts ^
     --ext-folder %~dp0\app\exts ^
     --ext-folder %~dp0\app\extscache ^
     --enable omni.kit.profiler.window ^
     --enable omni.kit.debug.vscode ^
     --enable omni.kit.browser.sample ^
+    --enable omni.kit.window.material ^
     --enable omni.hello.world ^
     --/log/file=%~dp0\kit.log ^
     --/exts/omni.kit.registry.nucleus/registries/0/name="kit/public" ^
