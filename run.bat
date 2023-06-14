@@ -14,6 +14,8 @@
     --/exts/omni.kit.registry.nucleus/registries/1/name="kit/community" ^
     --/exts/omni.kit.registry.nucleus/registries/1/url="https://dw290v42wisod.cloudfront.net/exts/kit/community" ^
     --/app/window/showStartup=false ^
+    --/app/file/ignoreUnsavedOnExit=true ^
+    --/app/file/ignoreUnsavedStage=true ^
     --/settings/renderer/enabled=rtx ^
     --/app/extensions/excluded/0=omni.iray.settings.core ^
     --/app/extensions/excluded/1=omni.hydra.iray ^
@@ -27,3 +29,5 @@
     --/app/extensions/excluded/10=omni.kit.tool.collect ^
     --/app/settings/persistent=false ^
     %*
+    
+    @REM --/rtx/post/aa/op=4 ^
