@@ -27,7 +27,8 @@
     --/app/extensions/excluded/8=omni.kit.telemetry ^
     --/app/extensions/excluded/9=omni.kit.multinode ^
     --/app/extensions/excluded/10=omni.kit.tool.collect ^
+    --/rendergraph/maxFramesInFlight=2 ^
     --/app/settings/persistent=false ^
+    --/rtx/post/aa/op=4 ^
     %*
     
-    @REM --/rtx/post/aa/op=4 ^

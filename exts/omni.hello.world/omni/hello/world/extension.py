@@ -8,6 +8,9 @@ import os
 import asyncio
 import datetime
 from pathlib import Path
+import carb
+import omni.kit.app
+import omni.renderer_capture
 
 cwd = os.getcwd()
 
@@ -77,7 +80,12 @@ class MyExtension(omni.ext.IExt):
     # ext_id is current extension id. It can be used with extension manager to query additional information, like where
     # this extension is located on filesystem.
     def on_startup(self, ext_id):
-        print("[omni.hello.world] MyExtension startup")
+        carb.log_warn("[omni.hello.world] MyExtension startup")
+
+        self.app = omni.kit.app.get_app()
+
+        directory = Path(cwd) / '_results'
+        directory.mkdir(parents=True, exist_ok=True)
 
         self._window = ui.Window("stable diffusion", width=300, height=600)
 
@@ -95,7 +103,7 @@ class MyExtension(omni.ext.IExt):
                 url = "http://127.0.0.1:7860"
                 response = requests.post(url=f'{url}/sdapi/v1/txt2img', json=payload)
                 r = response.json()
-                print(response)
+                carb.log_warn(response)
                 if 'images' not in r:
                     return
                 for i in r['images']:
@@ -112,19 +120,73 @@ class MyExtension(omni.ext.IExt):
                     else:
                         pnginfo = None
 
-
-                    directory = Path(cwd) / '_results'
-                    directory.mkdir(parents=True, exist_ok=True)
-
                     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
                     image_name = f'{cwd}/_results/{timestamp}.png'
                     image.save(image_name, pnginfo=pnginfo)
-                    print(f'Saved to {image_name}')
+                    carb.log_warn(f'Saved to {image_name}')
 
                     self.image.source_url = image_name
 
-            def on_apply():
-                pass
+            def on_depth2img():
+                async def async_dump_image():
+                    from omni.kit.viewport.utility import get_active_viewport, capture_viewport_to_file, post_viewport_message
+                    viewport_api = get_active_viewport()
+                    if viewport_api is None:
+                        return
+
+                    # Wait until the viewport has valid resources
+                    await viewport_api.wait_for_rendered_frames()
+
+                    settings = carb.settings.get_settings()
+                    settings.set("/rtx/debugView/target", "depth")
+
+                    # display_options = settings.get("/persistent/app/viewport/displayOptions")
+                    # # Note: flags are from omni/kit/ViewportTypes.h
+                    # kShowFlagAxis = 1 << 1
+                    # kShowFlagGrid = 1 << 6
+                    # kShowFlagSelectionOutline = 1 << 7
+                    # kShowFlagLight = 1 << 8
+                    # display_options = (
+                    #     display_options
+                    #     | (kShowFlagAxis)
+                    #     | (kShowFlagGrid)
+                    #     | (kShowFlagSelectionOutline)
+                    #     | (kShowFlagLight)
+                    # )
+                    # settings.set("/persistent/app/viewport/displayOptions", display_options)
+                    # Make sure these are in sync from changes above
+
+                    show_camera = settings.get("/app/viewport/show/camera")
+                    show_lights = settings.get("/app/viewport/show/lights")
+                    show_grid = settings.get("/app/viewport/grid/enabled")
+                    show_outline = settings.get("/app/viewport/outline/enabled")
+
+                    settings.set("/app/viewport/show/camera", False)
+                    settings.set("/app/viewport/show/lights", False)
+                    settings.set("/app/viewport/grid/enabled", False)
+                    settings.set("/app/viewport/outline/enabled", False)
+
+                    for i in range(4):
+                        await omni.kit.app.get_app_interface().next_update_async()
+
+                    await omni.kit.app.get_app_interface().next_update_async()
+
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                    image_name = f'{cwd}/_results/depth-{timestamp}.png'
+
+                    capture_viewport_to_file(viewport_api, image_name)
+                    carb.log_warn(f'Saved to {image_name}')
+                    # post_viewport_message(viewport_api, f'Saved to {image_name}')
+
+                    settings.set("/rtx/debugView/target", "")
+                    settings.set("/app/viewport/show/camera", show_camera)
+                    settings.set("/app/viewport/show/lights", show_lights)
+                    settings.set("/app/viewport/grid/enabled", show_grid)
+                    settings.set("/app/viewport/outline/enabled", show_outline)
+
+                app = omni.kit.app.get_app()
+
+                asyncio.ensure_future(async_dump_image())
 
             with ui.VStack():
                 with omni.ui.HStack(height=0):
@@ -145,13 +207,14 @@ class MyExtension(omni.ext.IExt):
 
                 with omni.ui.HStack(height=0):
                     ui.Button("txt2img", clicked_fn=on_txt2img)
-                    ui.Button("apply", clicked_fn=on_apply)
+                    ui.Button("depth2img", clicked_fn=on_depth2img)
                 # label = ui.Label("")
                 # field.model.add_value_changed_fn(
                 #     lambda m, label=label: setText(label, m.get_value_as_string()))
                 # ui.Button("Reset", clicked_fn=on_reset)
-                self.image = ui.Image(f'{cwd}/output.png')
+                self.image = ui.Image()
+
 
     def on_shutdown(self):
-        print("[omni.hello.world] MyExtension shutdown")
+        carb.log_warn("[omni.hello.world] MyExtension shutdown")
         self._window = None
