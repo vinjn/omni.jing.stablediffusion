@@ -11,6 +11,8 @@ from pathlib import Path
 import carb
 import omni.kit.app
 import omni.renderer_capture
+from omni.kit.viewport.utility import get_active_viewport, capture_viewport_to_file, post_viewport_message
+from . import multicn
 
 cwd = os.getcwd()
 
@@ -64,7 +66,7 @@ def make_txt2img_param(prompt, negative_prompt):
         "override_settings": {},
         "override_settings_restore_afterwards": True,
         "script_args": [],
-        "sampler_index": "Euler",
+        "sampler_index": "Euler a",
         "script_name": "string",
         "send_images": True,
         "save_images": False,
@@ -90,13 +92,14 @@ class MyExtension(omni.ext.IExt):
         self._window = ui.Window("stable diffusion", width=300, height=600)
 
         self.prompt_ssm = ui.SimpleStringModel()
-        self.nagative_promopt_ssm = ui.SimpleStringModel()
+        self.nagative_prompt_ssm = ui.SimpleStringModel()
+        self.depth_image_name = None
 
         with self._window.frame:
             def on_txt2img():
                 payload = {
                     "prompt": self.prompt_ssm.get_value_as_string(),
-                    "negative_prompt": self.nagative_promopt_ssm.get_value_as_string(),
+                    "negative_prompt": self.nagative_prompt_ssm.get_value_as_string() or "(worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality",
                     "steps": 10
                 }
 
@@ -121,19 +124,20 @@ class MyExtension(omni.ext.IExt):
                         pnginfo = None
 
                     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                    image_name = f'{cwd}/_results/{timestamp}.png'
+                    image_name = f'{cwd}/_results/{timestamp}-txt2img.png'
                     image.save(image_name, pnginfo=pnginfo)
                     carb.log_warn(f'Saved to {image_name}')
 
                     self.image.source_url = image_name
 
             def on_depth2img():
-                async def async_dump_image():
-                    from omni.kit.viewport.utility import get_active_viewport, capture_viewport_to_file, post_viewport_message
-                    viewport_api = get_active_viewport()
-                    if viewport_api is None:
-                        return
+                viewport_api = get_active_viewport()
+                if viewport_api is None:
+                    return
 
+                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
+                async def async_dump_image():
                     # Wait until the viewport has valid resources
                     await viewport_api.wait_for_rendered_frames()
 
@@ -171,12 +175,15 @@ class MyExtension(omni.ext.IExt):
 
                     await omni.kit.app.get_app_interface().next_update_async()
 
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                    image_name = f'{cwd}/_results/depth-{timestamp}.png'
+                    image_name = f'{cwd}/_results/{timestamp}-depth.png'
 
                     capture_viewport_to_file(viewport_api, image_name)
                     carb.log_warn(f'Saved to {image_name}')
                     # post_viewport_message(viewport_api, f'Saved to {image_name}')
+                    self.depth_image_name = image_name
+
+                    for i in range(4):
+                        await omni.kit.app.get_app_interface().next_update_async()
 
                     settings.set("/rtx/debugView/target", "")
                     settings.set("/app/viewport/show/camera", show_camera)
@@ -184,9 +191,73 @@ class MyExtension(omni.ext.IExt):
                     settings.set("/app/viewport/grid/enabled", show_grid)
                     settings.set("/app/viewport/outline/enabled", show_outline)
 
+                    (viewport_width, viewport_height) = viewport_api.resolution
+
+                    # prepare data for API
+                    params = {
+                        "prompt": self.prompt_ssm.get_value_as_string(),
+                        "negative_prompt": self.nagative_prompt_ssm.get_value_as_string() or "(worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality",
+                        "width": viewport_width,
+                        "height": viewport_height,
+                        "sampler_index": "Euler a",
+                        "sampler_name": "",
+                        "batch_size": 1,
+                        "n_iter": 1,
+                        "steps": 20,
+                        "cfg_scale": 7,
+                        "seed": -1,
+                        "subseed": -1,
+                        "subseed_strength": 0,
+                        "restore_faces": False,
+                        "enable_hr": False,
+                        "hr_scale": 1.5,
+                        "hr_upscaler": "R-ESRGAN General WDN 4xV3",
+                        "denoising_strength": 0.5,
+                        "hr_second_pass_steps": 10,
+                        "hr_resize_x": 0,
+                        "hr_resize_y": 0,
+                        "firstphase_width": 0,
+                        "firstphase_height": 0,
+                        "override_settings": {"CLIP_stop_at_last_layers": 2},
+                        "override_settings_restore_afterwards": True,
+                        "alwayson_scripts": {"controlnet": {"args": []}},
+                    }
+
+                    is_send_depth = True
+                    if is_send_depth:
+                        depth_cn_units = {
+                            "mask": "",
+                            "module": "none",
+                            "model": "control_v11f1p_sd15_depth",
+                            "weight": 1.0,
+                            "resize_mode": "Scale to Fit (Inner Fit)",
+                            "lowvram": True,
+                            "processor_res": 512,
+                            "threshold_a": 64,
+                            "threshold_b": 64,
+                            "guidance": 1,
+                            "guidance_start": 0.19,
+                            "guidance_end": 1,
+                            # "guessmode": False,
+                        }
+                        with open(self.depth_image_name, "rb") as depth_file:
+                            depth_cn_units["input_image"] = base64.b64encode(depth_file.read()).decode()
+                        params["alwayson_scripts"]["controlnet"]["args"].append(depth_cn_units)
+
+                    # send to API
+                    response = multicn.actually_send_to_api(params)
+
+                    # if we got a successful image created, load it into the scene
+                    if response:
+                        image_name = f'{cwd}/_results/{timestamp}-txt2img-controlnet.png'
+                        multicn.handle_api_success(response, image_name)
+                        carb.log_warn(f'Saved to {image_name}')
+                        self.image.source_url = image_name
+
                 app = omni.kit.app.get_app()
 
                 asyncio.ensure_future(async_dump_image())
+
 
             with ui.VStack():
                 with omni.ui.HStack(height=0):
@@ -202,7 +273,7 @@ class MyExtension(omni.ext.IExt):
                 omni.ui.Spacer(height=5)
 
                 with omni.ui.HStack(height=100):
-                    self.negative_propmt = ui.StringField(model=self.nagative_promopt_ssm, multiline=False)
+                    self.negative_propmt = ui.StringField(model=self.nagative_prompt_ssm, multiline=False)
                 omni.ui.Spacer(height=5)
 
                 with omni.ui.HStack(height=0):

@@ -231,7 +231,7 @@ def send_to_api(scene):
         return False
 
 
-def actually_send_to_api(params, filename_prefix):
+def actually_send_to_api(params):
     # create headers
     headers = {
         "User-Agent": "kit/", #+ bpy.app.version_string,
@@ -246,20 +246,25 @@ def actually_send_to_api(params, filename_prefix):
     try:
         response = requests.post(server_url, json=params, headers=headers, timeout=1000)
     except requests.exceptions.ConnectionError:
-        return print(f"The Automatic1111 server couldn't be found.")
+        print(f"The Automatic1111 server couldn't be found.")
+        return None
     except requests.exceptions.MissingSchema:
-        return print(f"The url for your Automatic1111 server is invalid.")
+        print(f"The url for your Automatic1111 server is invalid.")
+        return None
     except requests.exceptions.ReadTimeout:
-        return print("The Automatic1111 server timed out.")
+        print("The Automatic1111 server timed out.")
+        return None
 
     # handle the response
+
     if response.status_code == 200:
-        return handle_api_success(response, filename_prefix)
+        return response
     else:
-        return handle_api_error(response)
+        handle_api_error(response)
+        return None
 
 
-def handle_api_success(response, filename_prefix):
+def handle_api_success(response, image_file):
     try:
         response_obj = response.json()
         base64_img = response_obj["images"][0]
@@ -268,27 +273,18 @@ def handle_api_success(response, filename_prefix):
         print(response.content)
         return print("Received an unexpected response from the Automatic1111 server.")
 
-    # create a temp file
-    try:
-        output_file = create_temp_file(filename_prefix + "-")
-    except:
-        return print("Couldn't create a temp file to save image.")
-
     # decode base64 image
     try:
         img_binary = base64.b64decode(base64_img.replace("data:image/png;base64,", ""))
     except:
         return print("Couldn't decode base64 image.")
 
-    # save the image to the temp file
+    # save the image to the image file
     try:
-        with open(output_file, "wb") as file:
+        with open(image_file, "wb") as file:
             file.write(img_binary)
     except:
-        return print("Couldn't write to temp file.")
-
-    # return the temp file
-    return output_file
+        return print("Couldn't write to image file.")
 
 
 def handle_api_error(response):
