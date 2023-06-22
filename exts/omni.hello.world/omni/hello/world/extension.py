@@ -16,6 +16,8 @@ from . import multicn
 
 cwd = os.getcwd()
 
+DEFAULT_NEGATIVE_PROMPT = '(worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality, skin spots, acnes, skin blemishes, age spot, glans, (watermark:2),'
+
 # https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/API
 # http://127.0.0.1:7860/docs
 
@@ -99,7 +101,7 @@ class MyExtension(omni.ext.IExt):
             def on_txt2img():
                 payload = {
                     "prompt": self.prompt_ssm.get_value_as_string(),
-                    "negative_prompt": self.nagative_prompt_ssm.get_value_as_string() or "(worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality",
+                    "negative_prompt": self.nagative_prompt_ssm.get_value_as_string() or DEFAULT_NEGATIVE_PROMPT,
                     "steps": 10
                 }
 
@@ -196,7 +198,7 @@ class MyExtension(omni.ext.IExt):
                     # prepare data for API
                     params = {
                         "prompt": self.prompt_ssm.get_value_as_string(),
-                        "negative_prompt": self.nagative_prompt_ssm.get_value_as_string() or "(worst quality:2), (low quality:2), (normal quality:2), lowres, normal quality",
+                        "negative_prompt": self.nagative_prompt_ssm.get_value_as_string() or DEFAULT_NEGATIVE_PROMPT,
                         "width": viewport_width,
                         "height": viewport_height,
                         "sampler_index": "Euler a",
@@ -236,9 +238,9 @@ class MyExtension(omni.ext.IExt):
                             "threshold_a": 64,
                             "threshold_b": 64,
                             "guidance": 1,
-                            "guidance_start": 0.19,
+                            "guidance_start": 0.0,
                             "guidance_end": 1,
-                            # "guessmode": False,
+                            #"control": False,
                         }
                         with open(self.depth_image_name, "rb") as depth_file:
                             depth_cn_units["input_image"] = base64.b64encode(depth_file.read()).decode()
