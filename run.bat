@@ -1,4 +1,4 @@
-%~dp0\app\kit\omni.app.full.bat ^
+%~dp0\app\kit\omni.app.dev.bat ^
     --/app/window/title=omni-stable-diffusion ^
     --ext-folder %~dp0\exts ^
     --ext-folder %~dp0\app\exts ^
@@ -10,9 +10,11 @@
     --enable omni.hello.world ^
     --/log/file=%~dp0\kit.log ^
     --/exts/omni.kit.registry.nucleus/registries/0/name="kit/public" ^
-    --/exts/omni.kit.registry.nucleus/registries/0/url="https://d1aiacozzchaiq.cloudfront.net/exts/kit/public/104.0/" ^
-    --/exts/omni.kit.registry.nucleus/registries/1/name="kit/community" ^
-    --/exts/omni.kit.registry.nucleus/registries/1/url="https://dw290v42wisod.cloudfront.net/exts/kit/community" ^
+    --/exts/omni.kit.registry.nucleus/registries/0/url="https://ovextensionsprod.blob.core.windows.net/exts/kit/prod/shared/" ^
+    --/exts/omni.kit.registry.nucleus/registries/1/name="kit/sdk" ^
+    --/exts/omni.kit.registry.nucleus/registries/1/url="https://ovextensionsprod.blob.core.windows.net/exts/kit/prod/sdk/${kit_version_short}/${kit_git_hash}" ^
+    --/exts/omni.kit.registry.nucleus/registries/2/name="kit/community" ^
+    --/exts/omni.kit.registry.nucleus/registries/2/url="https://dw290v42wisod.cloudfront.net/exts/kit/community" ^
     --/app/window/showStartup=false ^
     --/app/file/ignoreUnsavedOnExit=true ^
     --/app/file/ignoreUnsavedStage=true ^
