@@ -28,7 +28,7 @@ icon = "data/icon.png"
 preview_image = "data/preview.png"
 
 [python.pipapi]
-requirements = ['requests', 'webuiapi']
+requirements = ['requests']
 use_online_index = true
 
 # Use omni.ui to build simple UI
