@@ -32,5 +32,6 @@
     --/rendergraph/maxFramesInFlight=2 ^
     --/app/settings/persistent=false ^
     --/rtx/post/aa/op=4 ^
+    --/rtx/post/dlss/execMode=1 ^
     %*
     
